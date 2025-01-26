@@ -2,9 +2,8 @@
 using System.Text.RegularExpressions;
 //מהאתר מכבי html שליפת 
 //var html = await Load("https://www.maccabi4u.co.il");
-var html = await Load("https://chat.malkabruk.co.il/");
-var cleanHtml = new Regex("\\s").Replace(html, "");
-var htmlLines = new Regex("<(.*?)>").Split(cleanHtml).Where(s => s.Length > 0);
+//var html = await Load("https://chat.malkabruk.co.il/");
+//var html = await Load("https://www.matara.pro/nedarimplus/");
 static async Task<string> Load(string url)
 {
     HttpClient client = new HttpClient();
@@ -12,11 +11,124 @@ static async Task<string> Load(string url)
     var html = await response.Content.ReadAsStringAsync();
     return html;
 }
-//build html tree
-HtmlElement root=HtmlElement.BuildTree(htmlLines);
-//הצגת העץ
 
+static HtmlElement BuildTree(string html)
+{
+    //cleaning html
+    var cleanHtml = Regex.Replace(html, @"<!--[\s\S]*?-->", "");
+    cleanHtml = Regex.Replace(cleanHtml, @"\s*\n\s*|\s{2,}", " "); // הסרת רווחים מיותרים
+    //split the html to lines as tags list
+    var htmlLines = new Regex("<(.*?)>").Split(cleanHtml).Where(s => s.Length > 0);
+    HtmlElement root = null;
+    HtmlElement current = null;
+
+    foreach (var line in htmlLines)
+    {
+        //מילה ראשונה מהשורה
+        var firstWord = line.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        if (string.IsNullOrEmpty(firstWord))
+            continue;
+
+        if (firstWord.StartsWith("/") && HtmlHelper.Instance.Alltags.Contains(firstWord.Substring(1)))
+        {
+            //תו סוגר -לשים באלמנט נוכחי את האבא
+            if (current != null)
+                current = current.Parent;
+            continue;
+        }
+        if (IsTagHtml(firstWord))
+        {
+            //crete a new element
+            var tagName = firstWord.TrimEnd('/');//delete /
+            bool isSelfClosing = firstWord.EndsWith("/") || HtmlHelper.Instance.WithoutClose.Contains(tagName);//אם זו תגית סגירה
+
+            HtmlElement newElement = new HtmlElement
+            {
+                Name = tagName,
+                Parent = current
+            };
+
+            AddAttribute(line, newElement);
+
+            //innerHtml
+            var innerMatch = Regex.Match(line, @">(.*?)<");
+            if (innerMatch.Success)
+            {
+                var innerCon = innerMatch.Groups[1].Value.Trim();
+                if (!string.IsNullOrEmpty(innerCon))
+                    newElement.InnerHtml = innerCon;
+            }
+            //add to tree
+            if (current == null)
+                root = newElement;
+
+            else
+                current.Children.Add(newElement);
+
+            if (!isSelfClosing)
+                current = newElement;
+        }
+        else
+        {
+            if (current != null)
+                current.InnerHtml = line.Trim();
+        }
+    }
+    PrintTree(root, 0);
+    return root;
+}
+static bool IsTagHtml(string word1)
+{
+    return (HtmlHelper.Instance.Alltags.Contains(word1, StringComparer.OrdinalIgnoreCase)
+            || HtmlHelper.Instance.WithoutClose.Contains(word1));
+}
+static void AddAttribute(string line, HtmlElement newElement)
+{
+    var attributes = Regex.Matches(line, @"(\w+)(?:=(""[^""]*""|'[^']*')|)");
+    foreach (Match attr in attributes)
+    {
+        string attrName = attr.Groups[1].Value;//name
+        string attrValue = attr.Groups[2].Success ? attr.Groups[2].Value.Trim('"', '\'') : string.Empty;
+
+
+        if (attrName.Equals("class", StringComparison.OrdinalIgnoreCase))
+            newElement.Classes.AddRange(attrValue.Split(' ', StringSplitOptions.RemoveEmptyEntries));//אם יש כמה קלאסים?
+
+        else if (attrName.Equals("id", StringComparison.OrdinalIgnoreCase))
+            newElement.Id = attrValue;
+
+        else if (!string.IsNullOrEmpty(attrName))
+        {
+            if (string.IsNullOrEmpty(attrValue))
+                newElement.Attributes.Add(attrName);
+            else
+                newElement.Attributes.Add($"{attrName}=\"{attrValue}\"");
+        }
+    }
+}
+//הצגת העץ
+// הצגת העץ
 static void PrintTree(HtmlElement element, int level)
+{
+    var indent = new string(' ', level * 2);
+    Console.WriteLine($"{indent}{element.Name} (ID: {element.Id})");
+
+    if (!string.IsNullOrEmpty(element.InnerHtml))
+        Console.WriteLine($"{indent}  InnerHtml: {element.InnerHtml}");
+
+    if (element.Attributes.Count > 0)
+        Console.WriteLine($"{indent}  Attributes: {string.Join(", ", element.Attributes)}");
+
+    if (element.Classes.Count > 0)
+        Console.WriteLine($"{indent}  Classes: {string.Join(", ", element.Classes)}");
+
+    foreach (var child in element.Children)
+        PrintTree(child, level + 1);
+
+    if (element.Children.Count > 0)
+        Console.WriteLine($"{indent}</{element.Name}>");
+}
+/*static void PrintTree(HtmlElement element, int level)
 {
     var indent = new string(' ', level * 2); // רווחים לכל רמה בעץ
     Console.WriteLine($"{indent}{element.Name} (ID: {element.Id})");
@@ -50,121 +162,19 @@ static void PrintTree(HtmlElement element, int level)
     {
         Console.WriteLine($"{indent}</{element.Name}>");
     }
-}
+}*/
 
-
-//תגיות ללא סגירה
-static string? IsLeaf(string x)
+//main:
+var html = await Load("https://www.matara.pro/nedarimplus/");
+BuildTree(html);
+Selector selector = Selector.Convert("div img");
+if (selector.TagName!=null)
 {
-    return Array.Find(HtmlHelper.Instance.WithoutClose, element => x.StartsWith(element));
+    Console.WriteLine("selector:");
+    Console.WriteLine(selector.TagName);
+    Console.WriteLine(selector.Id);
+    Console.WriteLine(selector.Classes);
 }
-static string? IsTag(string x)
-{
-    string? res = Array.Find(HtmlHelper.Instance.WithoutClose, element => x.StartsWith(element));
-    if (res != null)
-        return res;
-    return Array.Find(HtmlHelper.Instance.Alltags, element => x.StartsWith(element));
-}
-//מממ מעודכן
-/*var html = Load("https://www.matara.pro/nedarimplus/").Result;
-var HtmlElement = Serialize(html);*/
-//Build tree:
-static HtmlElement Serialize(string html)
-{
-    // Cleaning HTML - removing comments and unnecessary spaces
-    var cleanHtml = Regex.Replace(html, @"<!--[\s\S]*?-->", ""); // Removes comments, including multiline comments
-    cleanHtml = Regex.Replace(cleanHtml, @"\s*\n\s*|\s{2,}", " "); // Replace multiple spaces with a single space
 
-    // Splitting the HTML into lines as a list of tags
-    var htmlLines = new Regex("<(.*?)>").Split(cleanHtml).Where(x => x.Length > 0);
-
-    HtmlElement rootElement = null;
-    HtmlElement currentElement = null;
-
-    foreach (var line in htmlLines)
-    {
-        var firstWord = line.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
-        if (string.IsNullOrEmpty(firstWord)) continue;
-
-        if (firstWord.StartsWith("/") && HtmlHelper.Instance.Alltags.Contains(firstWord.Substring(1)))
-        {
-            // Closing tag - return to the parent element
-            if (currentElement != null)
-            {
-                currentElement = currentElement.Parent;
-            }
-            continue;
-        }
-
-        if (HtmlHelper.Instance.Alltags.Contains(firstWord, StringComparer.OrdinalIgnoreCase) || HtmlHelper.Instance.WithoutClose.Contains(firstWord))
-        {
-            // Create a new element
-            var tagName = firstWord.TrimEnd('/');
-            var isSelfClosing = firstWord.EndsWith("/") || HtmlHelper.Instance.WithoutClose.Contains(tagName);
-
-            var newElement = new HtmlElement
-            {
-                Name = tagName,
-                Parent = currentElement
-            };
-
-            // Parse attributes and set them
-            var attributesRegex = new Regex(@"(\w+)(?:=""([^""]*)""|$)");
-            var attributesMatch = attributesRegex.Matches(line);
-            foreach (Match attributeMatch in attributesMatch)
-            {
-                var attributeName = attributeMatch.Groups[1].Value;
-                var attributeValue = attributeMatch.Groups[2].Value;
-
-                if (attributeName.Equals("id", StringComparison.OrdinalIgnoreCase))
-                {
-                    newElement.Id = attributeValue;
-                }
-                else if (attributeName.Equals("class", StringComparison.OrdinalIgnoreCase))
-                {
-                    newElement.Classes.AddRange(attributeValue.Split(' ', StringSplitOptions.RemoveEmptyEntries));
-                }
-                else if (!string.IsNullOrEmpty(attributeValue))
-                {
-                    newElement.Attributes.Add(attributeValue);
-                }
-            }
-
-            // Handle InnerHtml
-            var innerContentMatch = Regex.Match(line, @">(.*?)<");
-            if (innerContentMatch.Success)
-            {
-                var innerContent = innerContentMatch.Groups[1].Value.Trim();
-                if (!string.IsNullOrEmpty(innerContent))
-                {
-                    newElement.InnerHtml = innerContent;
-                }
-            }
-
-            // Add to the tree
-            if (currentElement == null)
-            {
-                rootElement = newElement;
-            }
-            else
-            {
-                currentElement.Children.Add(newElement);
-            }
-
-            if (!isSelfClosing)
-            {
-                currentElement = newElement;
-            }
-        }
-        else
-        {
-            // Handle plain text between tags
-            if (currentElement != null)
-            {
-                currentElement.InnerHtml = line.Trim();
-            }
-        }
-    }
-    PrintTree(rootElement, 0);
-    return rootElement;
-}
+//var res1 = BuildTree(html);
+//var res2 = res1.FindElements(res1, selector);

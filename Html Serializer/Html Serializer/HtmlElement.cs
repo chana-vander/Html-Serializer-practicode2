@@ -40,24 +40,7 @@ namespace Html_Serializer
 
             Children = new List<HtmlElement>();
         }
-        public void AddAttribute(string continueLine)
-        {
-            var attributes = Regex.Matches(continueLine, @"(\w+)=(""[^""]*""|'[^']*')");
-            foreach (Match attr in attributes)
-            {
-                string attrName = attr.Groups[1].Value;//name
-                string attrValue = attr.Groups[2].Value;//value
-
-                if (attrName.Equals("class", StringComparison.OrdinalIgnoreCase))
-                    Classes = attrValue.Split(' ').ToList();//אם יש כמה קלאסים
-
-                else if (attrName.Equals("id", StringComparison.OrdinalIgnoreCase))
-                    Id = attrValue;
-                else
-                    Attributes.Add($"{attrName}=\"{attrValue}\"");
-            }
-
-        }
+        
         public bool IsTag(string x)
         {
             return Array.Exists(HtmlHelper.Instance.WithoutClose, element => x.StartsWith(element)) ||
@@ -85,7 +68,7 @@ namespace Html_Serializer
                     currrent.AddChild(newElement);
 
                     string attributesPart = line.Substring(tag.Length).Trim();
-                    newElement.AddAttribute(attributesPart);
+                    //newElement.AddAttribute(attributesPart);
 
                     if (!newElement.IsSelfClosing())//
                         currrent = newElement;
