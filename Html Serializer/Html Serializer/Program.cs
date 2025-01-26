@@ -11,7 +11,6 @@ static async Task<string> Load(string url)
     var html = await response.Content.ReadAsStringAsync();
     return html;
 }
-
 static HtmlElement BuildTree(string html)
 {
     //cleaning html
@@ -168,13 +167,7 @@ static void PrintTree(HtmlElement element, int level)
 var html = await Load("https://www.matara.pro/nedarimplus/");
 BuildTree(html);
 Selector selector = Selector.Convert("div img");
-if (selector.TagName!=null)
-{
-    Console.WriteLine("selector:");
-    Console.WriteLine(selector.TagName);
-    Console.WriteLine(selector.Id);
-    Console.WriteLine(selector.Classes);
-}
+Console.WriteLine(selector.ToString());
 
 //var res1 = BuildTree(html);
 //var res2 = res1.FindElements(res1, selector);

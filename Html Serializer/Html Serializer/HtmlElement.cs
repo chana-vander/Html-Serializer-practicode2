@@ -46,38 +46,38 @@ namespace Html_Serializer
             return Array.Exists(HtmlHelper.Instance.WithoutClose, element => x.StartsWith(element)) ||
                 Array.Exists(HtmlHelper.Instance.Alltags, element => x.StartsWith(element)); ;
         }
-        public void AddChild(HtmlElement child)
-        {
-            child.Parent = this;
-            Children.Add(child);
-        }
-        public static HtmlElement BuildTree(IEnumerable<string> htmlLines)
-        {
-            HtmlElement root = new HtmlElement("html");
-            HtmlElement currrent = root;
+        //public void AddChild(HtmlElement child)
+        //{
+        //    child.Parent = this;
+        //    Children.Add(child);
+        //}
+        //public static HtmlElement BuildTree(IEnumerable<string> htmlLines)
+        //{
+        //    HtmlElement root = new HtmlElement("html");
+        //    HtmlElement currrent = root;
 
-            foreach (string line in htmlLines)
-            {
-                if (line.StartsWith('/'))
-                    currrent = currrent.Parent ?? (root);
-                //continue;
-                string tag = ExtractTag(line);
-                if (!string.IsNullOrEmpty(tag))
-                {
-                    HtmlElement newElement = new HtmlElement(tag);
-                    currrent.AddChild(newElement);
+        //    foreach (string line in htmlLines)
+        //    {
+        //        if (line.StartsWith('/'))
+        //            currrent = currrent.Parent ?? (root);
+        //        //continue;
+        //        string tag = ExtractTag(line);
+        //        if (!string.IsNullOrEmpty(tag))
+        //        {
+        //            HtmlElement newElement = new HtmlElement(tag);
+        //            currrent.AddChild(newElement);
 
-                    string attributesPart = line.Substring(tag.Length).Trim();
-                    //newElement.AddAttribute(attributesPart);
+        //            string attributesPart = line.Substring(tag.Length).Trim();
+        //            //newElement.AddAttribute(attributesPart);
 
-                    if (!newElement.IsSelfClosing())//
-                        currrent = newElement;
-                }
-                else
-                    currrent.InnerHtml += line.Trim();//
-            }
-            return root;
-        }
+        //            if (!newElement.IsSelfClosing())//
+        //                currrent = newElement;
+        //        }
+        //        else
+        //            currrent.InnerHtml += line.Trim();//
+        //    }
+        //    return root;
+        //}
         //תגיות שגם פותחות וגם סוגרות
         static string? ExtractTag(string line)
         {
